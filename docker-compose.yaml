@@ -67,6 +67,8 @@ services:
       dockerfile: Dockerfile.server
     container_name: mt5-server
     restart: always
+    ports:
+      - "8001:8000"
     env_file:
       - .env
     volumes:
