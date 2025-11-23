@@ -193,7 +193,10 @@ async def connect_mt5_account(
 
     if not result['success']:
         logger.warning(f"MT5 connection failed for user {current_user['user_id']}: {result.get('error')}")
-        raise HTTPException(status_code=400, detail=result['error'])
+        error_detail = result.get('error', 'Unknown error')
+        if isinstance(error_detail, dict):
+            error_detail = str(error_detail)
+        raise HTTPException(status_code=400, detail=error_detail)
 
     logger.info(f"MT5 connection successful for user {current_user['user_id']}")
     return result
@@ -207,7 +210,10 @@ async def disconnect_mt5_account(current_user: Dict = Depends(get_current_user))
 
     if not result['success']:
         logger.warning(f"MT5 disconnection failed for user {current_user['user_id']}: {result.get('error')}")
-        raise HTTPException(status_code=400, detail=result['error'])
+        error_detail = result.get('error', 'Unknown error')
+        if isinstance(error_detail, dict):
+            error_detail = str(error_detail)
+        raise HTTPException(status_code=400, detail=error_detail)
 
     logger.info(f"MT5 disconnection successful for user {current_user['user_id']}")
     return result
@@ -240,7 +246,10 @@ async def execute_trade(
 
     if not result['success']:
         logger.warning(f"Trade execution failed for user {current_user['user_id']}: {result.get('error')}")
-        raise HTTPException(status_code=400, detail=result['error'])
+        error_detail = result.get('error', 'Unknown error')
+        if isinstance(error_detail, dict):
+            error_detail = str(error_detail)
+        raise HTTPException(status_code=400, detail=error_detail)
 
     logger.info(f"Trade executed successfully for user {current_user['user_id']}: {result}")
     return result
@@ -291,7 +300,10 @@ async def cancel_order(
     result = await order_manager.cancel_order(current_user['user_id'], order_id)
 
     if not result['success']:
-        raise HTTPException(status_code=400, detail=result['error'])
+        error_detail = result.get('error', 'Unknown error')
+        if isinstance(error_detail, dict):
+            error_detail = str(error_detail)
+        raise HTTPException(status_code=400, detail=error_detail)
 
     return result
 
