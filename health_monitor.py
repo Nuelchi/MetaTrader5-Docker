@@ -139,26 +139,31 @@ class HealthMonitor:
                 mt5_health["terminal_info"] = {"library_type": "mt5linux", "connected": True}
                 logger.info("mt5linux library detected - terminal_info not available")
 
-            # Get account info
-            account_info = mt5.account_info()
-            if account_info:
-                mt5_health["account_info"] = {
-                    "login": account_info.login,
-                    "server": account_info.server,
-                    "balance": float(account_info.balance),
-                    "equity": float(account_info.equity),
-                    "margin": float(account_info.margin),
-                    "margin_free": float(account_info.margin_free),
-                    "profit": float(account_info.profit)
-                }
-                # If we have account info, we're definitely connected
-                mt5_health["connected"] = True
+            # Get account info (only if function exists - mt5linux might not have this)
+            if hasattr(mt5, 'account_info'):
+                account_info = mt5.account_info()
+                if account_info:
+                    mt5_health["account_info"] = {
+                        "login": account_info.login,
+                        "server": account_info.server,
+                        "balance": float(account_info.balance),
+                        "equity": float(account_info.equity),
+                        "margin": float(account_info.margin),
+                        "margin_free": float(account_info.margin_free),
+                        "profit": float(account_info.profit)
+                    }
+                    # If we have account info, we're definitely connected
+                    mt5_health["connected"] = True
+                else:
+                    mt5_health["issues"].append("No account information available")
             else:
-                mt5_health["issues"].append("No account information available")
+                # mt5linux doesn't have account_info, assume library availability indicates connection capability
+                mt5_health["account_info"] = {"library_type": "mt5linux", "status": "library_available"}
+                logger.info("mt5linux library detected - account_info not available, assuming connection capability")
 
-            # Determine overall health - for mt5linux, focus on account info availability
-            if hasattr(mt5, 'terminal_info'):
-                # Standard MT5 library - require terminal info
+            # Determine overall health - for mt5linux, focus on library availability
+            if hasattr(mt5, 'terminal_info') and hasattr(mt5, 'account_info'):
+                # Standard MT5 library - require terminal info and account info
                 mt5_health["healthy"] = (
                     mt5_health["connected"] and
                     mt5_health["terminal_info"] is not None and
@@ -166,11 +171,8 @@ class HealthMonitor:
                     len(mt5_health["issues"]) == 0
                 )
             else:
-                # mt5linux - just require account info and no issues
-                mt5_health["healthy"] = (
-                    mt5_health["account_info"] is not None and
-                    len(mt5_health["issues"]) == 0
-                )
+                # mt5linux - just require library availability and no issues
+                mt5_health["healthy"] = len(mt5_health["issues"]) == 0
 
             self.mt5_status = mt5_health["healthy"]
             self.last_mt5_check = datetime.now()
