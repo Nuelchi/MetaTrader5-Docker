@@ -21,13 +21,20 @@ from pydantic import BaseModel, validator
 
 # Optional MT5 import for testing without MT5
 try:
-    import MetaTrader5 as mt5
+    # Try mt5linux first (Linux-compatible)
+    import mt5linux as mt5
     MT5_AVAILABLE = True
-    logger.info("✅ MetaTrader5 library loaded successfully")
+    logger.info("✅ mt5linux library loaded successfully")
 except ImportError:
-    mt5 = None
-    MT5_AVAILABLE = False
-    logger.warning("⚠️  MetaTrader5 library not available - running in simulation mode")
+    try:
+        # Fallback to MetaTrader5 (Windows)
+        import MetaTrader5 as mt5
+        MT5_AVAILABLE = True
+        logger.info("✅ MetaTrader5 library loaded successfully")
+    except ImportError:
+        mt5 = None
+        MT5_AVAILABLE = False
+        logger.warning("⚠️  No MT5 library available - running in simulation mode")
 
 from auth import SupabaseJWTVerifier, get_current_user
 from mt5_account_manager import MT5AccountManager
