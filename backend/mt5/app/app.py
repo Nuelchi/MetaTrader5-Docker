@@ -2,7 +2,6 @@ import logging
 import os
 from flask import Flask
 from dotenv import load_dotenv
-import MetaTrader5 as mt5
 from flasgger import Swagger
 from werkzeug.middleware.proxy_fix import ProxyFix
 from swagger import swagger_config
@@ -37,16 +36,26 @@ app.register_blueprint(error_bp)
 
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
+# Global MT5 instance
+mt5 = None
+
 if __name__ == '__main__':
-    # Connect to mt5linux server instead of direct MT5 initialization
+    # Try to connect to mt5linux server first
     try:
-        import mt5linux
-        mt5linux.initialize(host='localhost', port=8001)
+        from mt5linux import MetaTrader5 as MT5Linux
+        global mt5
+        mt5 = MT5Linux(host='localhost', port=8001)
         logger.info("Connected to mt5linux server successfully.")
     except Exception as e:
         logger.error(f"Failed to connect to mt5linux server: {e}")
         # Fallback to direct MT5 initialization if mt5linux fails
-        if not mt5.initialize():
-            logger.error("Failed to initialize MT5 directly.")
+        try:
+            import MetaTrader5 as MT5Direct
+            global mt5
+            mt5 = MT5Direct
+            if not mt5.initialize():
+                logger.error("Failed to initialize MT5 directly.")
+        except ImportError:
+            logger.error("MetaTrader5 library not available for fallback.")
 
     app.run(host='0.0.0.0', port=int(os.environ.get('MT5_API_PORT')))

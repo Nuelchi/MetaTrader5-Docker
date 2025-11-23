@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify
-import MetaTrader5 as mt5
 from flasgger import swag_from
+from ..app import mt5
 
 health_bp = Blueprint('health', __name__)
 

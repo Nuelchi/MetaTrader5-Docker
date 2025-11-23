@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
-import MetaTrader5 as mt5
 import logging
 from flasgger import swag_from
+from ..app import mt5
 
 login_bp = Blueprint('login', __name__)
 logger = logging.getLogger(__name__)
