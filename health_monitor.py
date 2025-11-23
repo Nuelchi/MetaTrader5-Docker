@@ -107,11 +107,16 @@ class HealthMonitor:
                 "issues": []
             }
 
-            # Check MT5 initialization
-            if not mt5.initialize():
+            # Check MT5 initialization (only if initialize method exists)
+            if hasattr(mt5, 'initialize') and not mt5.initialize():
                 mt5_health["issues"].append("MT5 initialization failed")
                 self.error_count += 1
                 return mt5_health
+            elif not hasattr(mt5, 'initialize'):
+                # mt5linux doesn't need initialization, just check if library is available
+                mt5_health["healthy"] = True
+                mt5_health["connected"] = True
+                logger.info("MT5 library available (no initialization needed)")
 
             # Get terminal info
             terminal_info = mt5.terminal_info()
@@ -232,7 +237,12 @@ class HealthMonitor:
 
             # Add MT5 specific metrics if available
             try:
-                if mt5.initialize():
+                if hasattr(mt5, 'initialize'):
+                    if mt5.initialize():
+                        terminal_info = mt5.terminal_info()
+                        account_info = mt5.account_info()
+                else:
+                    # mt5linux doesn't need initialization
                     terminal_info = mt5.terminal_info()
                     account_info = mt5.account_info()
 
