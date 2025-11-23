@@ -8,8 +8,8 @@ x-logging: &default-logging
 services:
   mt5:
     build:
-      context: backend/mt5
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/mt5/Dockerfile
     container_name: mt5
     ports:
       - "5001:5001"  # API port

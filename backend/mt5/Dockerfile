@@ -50,7 +50,7 @@ COPY scripts /scripts
 RUN dos2unix /scripts/*.sh && \
     chmod +x /scripts/*.sh
 
-COPY root /
+COPY backend/mt5/root /
 COPY Metatrader /Metatrader
 RUN chmod +x /Metatrader/start.sh && \
     touch /var/log/mt5_setup.log && \
