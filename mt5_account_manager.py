@@ -81,11 +81,13 @@ class MT5AccountManager:
             )
 
             if not login_result:
-                error = mt5.last_error()
+                error = mt5.last_error() if hasattr(mt5, 'last_error') else "Unknown error"
                 logger.error(f"MT5 login failed for user {user_id}: {error}")
+                # Ensure error is a string
+                error_msg = str(error) if not isinstance(error, str) else error
                 return {
                     'success': False,
-                    'error': f'MT5 login failed: {error}'
+                    'error': f'MT5 login failed: {error_msg}'
                 }
 
             # Get account info
