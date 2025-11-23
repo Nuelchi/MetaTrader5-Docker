@@ -7,6 +7,8 @@ import supabase
 from typing import Optional, Dict, Any
 import time
 import logging
+from fastapi import Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from config import settings
 
@@ -132,8 +134,9 @@ jwt_verifier = auth_verifier  # For backward compatibility
 api_key_verifier = APIKeyVerifier(settings.api_keys.split(',') if settings.api_keys else [])
 rate_limiter = RateLimiter(settings.requests_per_minute)
 
-async def get_current_user(token: str) -> Dict[str, Any]:
-    """Get current authenticated user from JWT token"""
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer())) -> Dict[str, Any]:
+    """Get current authenticated user from JWT token (FastAPI dependency)"""
+    token = credentials.credentials
     user = jwt_verifier.get_user_from_token(token)
     if not user:
         raise ValueError("Invalid or expired token")
