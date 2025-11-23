@@ -137,13 +137,13 @@ sudo -u abc python3 -m mt5linux --host 0.0.0.0 -p $mt5server_port -w "$wine_exec
 # Give the server some time to start
 sleep 5
 
-# Check if the server is running
+# Check if the server is running (optional - we can use direct MT5)
 if ss -tuln | grep ":$mt5server_port" > /dev/null; then
     show_message "[7/7] The mt5linux server is running on port $mt5server_port."
-
-    # Start the Flask API server
-    show_message "[8/8] Starting Flask API server..."
-    /scripts/07-start-wine-flask.sh
 else
-    show_message "[7/7] Failed to start the mt5linux server on port $mt5server_port."
+    show_message "[7/7] mt5linux server not running - will try direct MT5 connection."
 fi
+
+# Start the Flask API server (will try direct MT5 first, fallback to mt5linux)
+show_message "[8/8] Starting Flask API server..."
+/scripts/07-start-wine-flask.sh

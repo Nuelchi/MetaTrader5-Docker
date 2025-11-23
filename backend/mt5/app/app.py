@@ -40,22 +40,25 @@ app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 mt5 = None
 
 if __name__ == '__main__':
-    # Try to connect to mt5linux server first
+    # Try direct MT5 initialization first (should work with Wine MT5)
     try:
-        from mt5linux import MetaTrader5 as MT5Linux
+        import MetaTrader5 as MT5Direct
         global mt5
-        mt5 = MT5Linux(host='localhost', port=8001)
-        logger.info("Connected to mt5linux server successfully.")
+        mt5 = MT5Direct
+        # Try to initialize MT5
+        if mt5.initialize():
+            logger.info("MT5 initialized successfully.")
+        else:
+            logger.warning("MT5 initialization returned False, but continuing...")
     except Exception as e:
-        logger.error(f"Failed to connect to mt5linux server: {e}")
-        # Fallback to direct MT5 initialization if mt5linux fails
+        logger.error(f"Failed to initialize MT5 directly: {e}")
+        # Fallback to mt5linux if direct MT5 fails
         try:
-            import MetaTrader5 as MT5Direct
+            from mt5linux import MetaTrader5 as MT5Linux
             global mt5
-            mt5 = MT5Direct
-            if not mt5.initialize():
-                logger.error("Failed to initialize MT5 directly.")
-        except ImportError:
-            logger.error("MetaTrader5 library not available for fallback.")
+            mt5 = MT5Linux(host='localhost', port=8001)
+            logger.info("Connected to mt5linux server successfully.")
+        except Exception as e2:
+            logger.error(f"Failed to connect to mt5linux server: {e2}")
 
     app.run(host='0.0.0.0', port=int(os.environ.get('MT5_API_PORT')))
