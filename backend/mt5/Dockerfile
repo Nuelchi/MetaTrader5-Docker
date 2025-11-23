@@ -11,8 +11,9 @@ RUN mkdir -p /config/.wine && \
     chown -R abc:abc /config/.wine && \
     chmod -R 755 /config/.wine
 
-# Update package lists and upgrade packages
-RUN apt-get update && apt-get upgrade -y
+# Remove problematic backports repository and update package lists
+RUN rm -f /etc/apt/sources.list.d/debian-backports.list && \
+    apt-get update && apt-get upgrade -y
 
 # Install required packages
 RUN apt-get install -y \
