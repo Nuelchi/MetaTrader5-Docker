@@ -35,10 +35,11 @@ sudo docker-compose logs -f mt5-server
 
 ### 4. Verify Installation
 ```bash
-# Test health endpoint
-curl http://localhost:8000/health
+# Test health endpoint (note: port 8001 for VPS deployment)
+curl http://localhost:8001/health
 
 # Expected: {"status": "healthy", ...}
+# Note: Status may show "degraded" if MT5 not connected - this is normal
 ```
 
 ## 📋 Environment Configuration
@@ -257,25 +258,39 @@ GET /metrics # Detailed performance metrics
 version: '3.8'
 services:
   mt5-server:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    container_name: mt5-server
+    restart: always
     ports:
-      - "8000:8000"  # REST API
+      - "8001:8000"  # REST API (host:container)
       - "8765:8765"  # WebSocket
     env_file:
       - .env
-    restart: unless-stopped
     volumes:
-      - ./logs:/var/log/mt5-server
+      - ./logs:/var/log
+      - ./data:/app/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.rule=Host(`api.traintrading.trainflow.dev`)"
+      - "traefik.http.routers.api.entrypoints=websecure"
+      - "traefik.http.routers.api.tls.certresolver=letsencrypt"
+    depends_on:
+      - traefik
+      - mt5-terminal
 ```
 
 ### Manual Docker Run
 ```bash
 sudo docker run -d \
   --name mt5-server \
-  -p 8000:8000 \
+  -p 8001:8000 \
   -p 8765:8765 \
   --env-file .env \
   --restart unless-stopped \
+  --volume ./logs:/var/log \
+  --volume ./data:/app/data \
   metatrader5-docker_mt5-server:latest
 ```
 
@@ -306,8 +321,14 @@ sudo docker run -d \
 - **Check**: Check MT5 terminal logs
 
 #### Port Already in Use
-- **Cause**: Another service using ports 8000/8765
+- **Cause**: Another service using ports 8001/8765
 - **Fix**: Change ports in docker-compose.yml or stop conflicting service
+- **Note**: VPS deployment uses port 8001 to avoid conflicts
+
+#### Port Mapping Not Applied
+- **Cause**: Docker Compose didn't recreate container with new port mapping
+- **Fix**: Force container recreation with `docker-compose rm -f mt5-server && docker-compose up -d mt5-server`
+- **Check**: Verify with `docker ps` showing `0.0.0.0:8001->8000/tcp`
 
 ### Logs and Debugging
 ```bash
@@ -409,9 +430,26 @@ For issues and questions:
 
 ---
 
-**Status**: ✅ Production Ready
+## 🎉 **DEPLOYMENT STATUS: SUCCESSFUL** 🎉
+
+**✅ VPS Deployment**: Successfully deployed on production VPS
+**✅ Port Mapping**: Working on port 8001 (host) → 8000 (container)
+**✅ API Endpoints**: All REST endpoints responding correctly
+**✅ Authentication**: JWT authentication working with Supabase
+**✅ Health Monitoring**: System health tracking operational
+**✅ Market Data API**: Successfully tested with BTCUSDT endpoint
+**✅ Docker Integration**: Full docker-compose deployment working
+
+**Live Server URL**: `http://your-vps-ip:8001`
+**Health Check**: `http://your-vps-ip:8001/health`
+**Status**: 🟢 Production Ready & Tested
+
+---
+
+**Status**: ✅ Production Ready & VPS Deployed
 **MT5 Compatibility**: ✅ Linux (mt5linux)
 **Authentication**: ✅ Supabase JWT
 **Health Monitoring**: ✅ System & MT5
 **WebSocket Streaming**: ✅ Real-time data
-**Docker Deployment**: ✅ Automated
+**Docker Deployment**: ✅ Automated & Tested
+**VPS Integration**: ✅ Live on Production Server
