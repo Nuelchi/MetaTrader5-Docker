@@ -130,6 +130,10 @@ sleep 5
 # Check if the server is running
 if ss -tuln | grep ":$mt5server_port" > /dev/null; then
     show_message "[7/7] The mt5linux server is running on port $mt5server_port."
+
+    # Start the Flask API server
+    show_message "[8/8] Starting Flask API server..."
+    /scripts/07-start-wine-flask.sh
 else
     show_message "[7/7] Failed to start the mt5linux server on port $mt5server_port."
 fi

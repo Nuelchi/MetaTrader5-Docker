@@ -38,6 +38,15 @@ app.register_blueprint(error_bp)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 if __name__ == '__main__':
-    if not mt5.initialize():
-        logger.error("Failed to initialize MT5.")
+    # Connect to mt5linux server instead of direct MT5 initialization
+    try:
+        import mt5linux
+        mt5linux.initialize(host='localhost', port=8001)
+        logger.info("Connected to mt5linux server successfully.")
+    except Exception as e:
+        logger.error(f"Failed to connect to mt5linux server: {e}")
+        # Fallback to direct MT5 initialization if mt5linux fails
+        if not mt5.initialize():
+            logger.error("Failed to initialize MT5 directly.")
+
     app.run(host='0.0.0.0', port=int(os.environ.get('MT5_API_PORT')))
