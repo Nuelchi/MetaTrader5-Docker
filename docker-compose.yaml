@@ -22,7 +22,7 @@ services:
       - "443:443"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.dashboard.rule=Host(`dashboard.traintrading.trainflow.dev`)"
+      - "traefik.http.routers.dashboard.rule=Host(`dashboard.trainflow.dev`)"
       - "traefik.http.routers.dashboard.entrypoints=websecure"
       - "traefik.http.routers.dashboard.service=api@internal"
       - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
@@ -42,7 +42,7 @@ services:
       - ./Metatrader:/home/wineuser/.wine/drive_c/ProgramData/MetaQuotes/Terminal
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.terminal.rule=Host(`terminal.traintrading.trainflow.dev`)"
+      - "traefik.http.routers.terminal.rule=Host(`terminal.trainflow.dev`)"
       - "traefik.http.routers.terminal.entrypoints=websecure"
       - "traefik.http.routers.terminal.tls.certresolver=letsencrypt"
     depends_on:
@@ -57,7 +57,7 @@ services:
       - VNC_PORT=5901
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.novnc.rule=Host(`trade.traintrading.trainflow.dev`)"
+      - "traefik.http.routers.novnc.rule=Host(`trade.trainflow.dev`)"
       - "traefik.http.routers.novnc.entrypoints=websecure"
       - "traefik.http.routers.novnc.tls.certresolver=letsencrypt"
 
