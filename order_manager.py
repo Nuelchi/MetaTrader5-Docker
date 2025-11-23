@@ -1,29 +1,20 @@
 """
 Order Manager
-Handles order placement, modification, cancellation, and position management
+Handles order placement, modification, cancellation, and position management via MT5 Flask API
 """
 
+import asyncio
 from typing import Dict, List, Optional
 import logging
 from datetime import datetime
+import aiohttp
 
 from config import settings
 
 logger = logging.getLogger(__name__)
 
-# Optional MT5 import for testing without MT5
-try:
-    # Try mt5linux first (Linux-compatible)
-    import mt5linux as mt5
-    logger.info("✅ mt5linux library loaded in order manager")
-except ImportError:
-    try:
-        # Fallback to MetaTrader5 (Windows)
-        import MetaTrader5 as mt5
-        logger.info("✅ MetaTrader5 library loaded in order manager")
-    except ImportError:
-        mt5 = None
-        logger.warning("⚠️  No MT5 library available in order manager - running in simulation mode")
+# MT5 Flask API configuration
+MT5_API_BASE_URL = "http://mt5:5001"  # Internal Docker network
 
 class OrderManager:
     """Manages trading orders and positions"""
@@ -75,42 +66,75 @@ class OrderManager:
         return request
 
     async def execute_trade(self, user_id: str, order_request: Dict) -> Dict:
-        """Execute a trade"""
+        """Execute a trade via MT5 Flask API"""
         try:
             logger.info(f"Executing trade for user {user_id}: {order_request}")
 
-            # Send order
-            result = mt5.order_send(order_request)
+            # Convert our internal format to Flask API format
+            api_order_data = {
+                'symbol': order_request['symbol'],
+                'volume': order_request['volume'],
+                'type': 'BUY' if order_request.get('type') == 0 else 'SELL',  # MT5 constants
+                'deviation': order_request.get('deviation', 20),
+                'magic': order_request.get('magic', 123456),
+                'comment': order_request.get('comment', 'TrainFlow AI Trade')
+            }
 
-            if result.retcode == getattr(mt5, 'TRADE_RETCODE_DONE', 10009):
-                # Store order details
-                order_info = {
-                    'ticket': result.order,
-                    'user_id': user_id,
-                    'symbol': order_request['symbol'],
-                    'type': order_request['type'],
-                    'volume': order_request['volume'],
-                    'price': result.price,
-                    'status': 'filled',
-                    'timestamp': datetime.now().isoformat()
-                }
+            # Add optional SL/TP
+            if 'sl' in order_request and order_request['sl']:
+                api_order_data['sl'] = order_request['sl']
+            if 'tp' in order_request and order_request['tp']:
+                api_order_data['tp'] = order_request['tp']
 
-                self.active_orders[result.order] = order_info
+            # Send order via Flask API
+            async with aiohttp.ClientSession() as session:
+                try:
+                    async with session.post(f"{MT5_API_BASE_URL}/order", json=api_order_data, timeout=30) as response:
+                        response_data = await response.json()
 
-                logger.info(f"Trade executed successfully: {result.order}")
-                return {
-                    'success': True,
-                    'order_id': result.order,
-                    'price': result.price,
-                    'message': 'Trade executed successfully'
-                }
-            else:
-                error_msg = f"Trade failed: {result.comment}"
-                logger.error(error_msg)
-                return {
-                    'success': False,
-                    'error': error_msg
-                }
+                        if response.status == 200:
+                            # Store order details
+                            order_info = {
+                                'ticket': response_data.get('result', {}).get('order'),
+                                'user_id': user_id,
+                                'symbol': order_request['symbol'],
+                                'type': order_request['type'],
+                                'volume': order_request['volume'],
+                                'price': response_data.get('result', {}).get('price'),
+                                'status': 'filled',
+                                'timestamp': datetime.now().isoformat()
+                            }
+
+                            ticket = response_data.get('result', {}).get('order')
+                            if ticket:
+                                self.active_orders[ticket] = order_info
+
+                            logger.info(f"Trade executed successfully: {ticket}")
+                            return {
+                                'success': True,
+                                'order_id': ticket,
+                                'price': response_data.get('result', {}).get('price'),
+                                'message': 'Trade executed successfully'
+                            }
+                        else:
+                            error_msg = response_data.get('error', f'HTTP {response.status}')
+                            logger.error(f"Trade failed: {error_msg}")
+                            return {
+                                'success': False,
+                                'error': error_msg
+                            }
+
+                except asyncio.TimeoutError:
+                    return {
+                        'success': False,
+                        'error': 'MT5 API request timeout'
+                    }
+                except Exception as e:
+                    logger.error(f"MT5 API request error: {e}")
+                    return {
+                        'success': False,
+                        'error': f'MT5 API error: {str(e)}'
+                    }
 
         except Exception as e:
             logger.error(f"Trade execution error: {e}")
@@ -169,31 +193,24 @@ class OrderManager:
             }
 
     async def get_positions(self, user_id: str) -> List[Dict]:
-        """Get all open positions"""
+        """Get all open positions via MT5 Flask API"""
         try:
-            positions = mt5.positions_get()
-
-            if not positions:
-                return []
-
-            position_list = []
-            for pos in positions:
-                position_list.append({
-                    'ticket': pos.ticket,
-                    'symbol': pos.symbol,
-                    'type': 'buy' if pos.type == getattr(mt5, 'POSITION_TYPE_BUY', 0) else 'sell',
-                    'volume': float(pos.volume),
-                    'price_open': float(pos.price_open),
-                    'price_current': float(pos.price_current),
-                    'profit': float(pos.profit),
-                    'sl': float(pos.sl) if pos.sl else None,
-                    'tp': float(pos.tp) if pos.tp else None,
-                    'swap': float(pos.swap),
-                    'commission': float(pos.commission),
-                    'time': pos.time
-                })
-
-            return position_list
+            async with aiohttp.ClientSession() as session:
+                try:
+                    async with session.get(f"{MT5_API_BASE_URL}/position", timeout=10) as response:
+                        if response.status == 200:
+                            positions_data = await response.json()
+                            # Assuming the API returns positions in a list
+                            return positions_data.get('positions', [])
+                        else:
+                            logger.error(f"Failed to get positions: HTTP {response.status}")
+                            return []
+                except asyncio.TimeoutError:
+                    logger.error("Positions request timeout")
+                    return []
+                except Exception as e:
+                    logger.error(f"Positions API request error: {e}")
+                    return []
 
         except Exception as e:
             logger.error(f"Error getting positions: {e}")
