@@ -40,6 +40,9 @@ is_wine_python_package_installed() {
 check_dependency "curl"
 check_dependency "$wine_executable"
 
+# Fix Wine directory ownership
+chown -R abc:abc /config/.wine 2>/dev/null || true
+
 # Install Mono if not present
 if [ ! -e "/config/.wine/drive_c/windows/mono" ]; then
     show_message "[1/7] Downloading and installing Mono..."
