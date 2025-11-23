@@ -19,6 +19,16 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, validator
 
+# Configure logging first
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger(__name__)
+
 # Optional MT5 import for testing without MT5
 try:
     # Try mt5linux first (Linux-compatible)
@@ -44,16 +54,13 @@ from websocket_server import MT5WebSocketServer
 from health_monitor import HealthMonitor
 from config import settings
 
-# Configure logging
-logging.basicConfig(
-    level=getattr(logging, settings.LOG_LEVEL),
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(settings.LOG_FILE),
-        logging.StreamHandler(sys.stdout)
-    ]
-)
-logger = logging.getLogger(__name__)
+# Update logging with settings if available
+try:
+    logging.getLogger().setLevel(getattr(logging, settings.LOG_LEVEL))
+    if hasattr(settings, 'LOG_FILE'):
+        logging.getLogger().addHandler(logging.FileHandler(settings.LOG_FILE))
+except:
+    pass  # Use default logging if settings not available
 
 # Initialize services
 jwt_verifier = SupabaseJWTVerifier(
