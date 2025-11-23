@@ -63,10 +63,7 @@ except:
     pass  # Use default logging if settings not available
 
 # Initialize services
-jwt_verifier = SupabaseJWTVerifier(
-    supabase_url=settings.supabase_url,
-    supabase_anon_key=settings.supabase_anon_key
-)
+jwt_verifier = SupabaseJWTVerifier()
 
 account_manager = MT5AccountManager()
 market_data_service = MarketDataService()

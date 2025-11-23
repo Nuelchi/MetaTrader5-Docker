@@ -12,30 +12,35 @@ from config import settings
 
 logger = logging.getLogger(__name__)
 
+# Initialize Supabase client (same as backend)
+try:
+    supabase_client = supabase.create_client(
+        settings.supabase_url,
+        settings.supabase_anon_key
+    )
+    supabase_available = True
+    logger.info("✅ Supabase client initialized successfully")
+except Exception as e:
+    logger.warning(f"Supabase client initialization failed: {e}")
+    supabase_client = None
+    supabase_available = False
+
 class SupabaseAuthVerifier:
     """Handles Supabase authentication using client (same as backend)"""
 
     def __init__(self):
-        try:
-            self.supabase = supabase.create_client(
-                settings.supabase_url,
-                settings.supabase_anon_key
-            )
-            self.available = True
-        except Exception as e:
-            logger.warning(f"Supabase client initialization failed: {e}")
-            self.supabase = None
-            self.available = False
+        # No parameters needed - uses global supabase_client
+        pass
 
     def verify_jwt_token(self, token: str) -> Optional[Dict[str, Any]]:
         """Verify JWT token using Supabase client (same as backend)"""
-        if not self.available:
+        if not supabase_available:
             logger.warning("Supabase not available, skipping token verification")
             return None
 
         try:
             # Use Supabase client to verify token (same as backend security.py)
-            response = self.supabase.auth.get_user(token)
+            response = supabase_client.auth.get_user(token)
 
             if response.user:
                 user = response.user
@@ -58,7 +63,7 @@ class SupabaseAuthVerifier:
 
     def get_user_from_token(self, token: str) -> Optional[Dict[str, Any]]:
         """Extract user information using Supabase client"""
-        if not self.available:
+        if not supabase_available:
             logger.warning("Supabase not available, returning mock user")
             return {
                 'user_id': 'mock_user',
@@ -67,7 +72,7 @@ class SupabaseAuthVerifier:
             }
 
         try:
-            response = self.supabase.auth.get_user(token)
+            response = supabase_client.auth.get_user(token)
 
             if response.user:
                 user = response.user
