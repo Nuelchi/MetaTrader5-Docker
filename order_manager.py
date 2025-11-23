@@ -3,7 +3,6 @@ Order Manager
 Handles order placement, modification, cancellation, and position management
 """
 
-import MetaTrader5 as mt5
 from typing import Dict, List, Optional
 import logging
 from datetime import datetime
@@ -11,6 +10,20 @@ from datetime import datetime
 from config import settings
 
 logger = logging.getLogger(__name__)
+
+# Optional MT5 import for testing without MT5
+try:
+    # Try mt5linux first (Linux-compatible)
+    import mt5linux as mt5
+    logger.info("✅ mt5linux library loaded in order manager")
+except ImportError:
+    try:
+        # Fallback to MetaTrader5 (Windows)
+        import MetaTrader5 as mt5
+        logger.info("✅ MetaTrader5 library loaded in order manager")
+    except ImportError:
+        mt5 = None
+        logger.warning("⚠️  No MT5 library available in order manager - running in simulation mode")
 
 class OrderManager:
     """Manages trading orders and positions"""

@@ -4,8 +4,24 @@ Handles historical and real-time market data retrieval
 """
 
 import asyncio
-import MetaTrader5 as mt5
 from typing import Dict, List, Optional, Tuple
+import logging
+
+logger = logging.getLogger(__name__)
+
+# Optional MT5 import for testing without MT5
+try:
+    # Try mt5linux first (Linux-compatible)
+    import mt5linux as mt5
+    logger.info("✅ mt5linux library loaded in market data service")
+except ImportError:
+    try:
+        # Fallback to MetaTrader5 (Windows)
+        import MetaTrader5 as mt5
+        logger.info("✅ MetaTrader5 library loaded in market data service")
+    except ImportError:
+        mt5 = None
+        logger.warning("⚠️  No MT5 library available in market data service - running in simulation mode")
 import pandas as pd
 import logging
 from datetime import datetime, timedelta

@@ -4,7 +4,6 @@ Handles MT5 account connections, monitoring, and credential management
 """
 
 import asyncio
-import MetaTrader5 as mt5
 from typing import Dict, Optional, List
 from datetime import datetime
 import json
@@ -14,6 +13,20 @@ from cryptography.fernet import Fernet
 from config import settings
 
 logger = logging.getLogger(__name__)
+
+# Optional MT5 import for testing without MT5
+try:
+    # Try mt5linux first (Linux-compatible)
+    import mt5linux as mt5
+    logger.info("✅ mt5linux library loaded in account manager")
+except ImportError:
+    try:
+        # Fallback to MetaTrader5 (Windows)
+        import MetaTrader5 as mt5
+        logger.info("✅ MetaTrader5 library loaded in account manager")
+    except ImportError:
+        mt5 = None
+        logger.warning("⚠️  No MT5 library available in account manager - running in simulation mode")
 
 class MT5AccountManager:
     """Manages MT5 account connections and monitoring"""
