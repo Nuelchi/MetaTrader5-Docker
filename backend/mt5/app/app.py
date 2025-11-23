@@ -9,6 +9,7 @@ from swagger import swagger_config
 
 # Import routes
 from routes.health import health_bp
+from routes.login import login_bp
 from routes.symbol import symbol_bp
 from routes.data import data_bp
 from routes.position import position_bp
@@ -26,6 +27,7 @@ swagger = Swagger(app, config=swagger_config)
 
 # Register blueprints
 app.register_blueprint(health_bp)
+app.register_blueprint(login_bp)
 app.register_blueprint(symbol_bp)
 app.register_blueprint(data_bp)
 app.register_blueprint(position_bp)

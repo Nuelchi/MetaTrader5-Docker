@@ -61,65 +61,78 @@ class MT5AccountManager:
         return json.loads(data.decode())
 
     async def connect_mt5_account(self, user_id: str, credentials: Dict) -> Dict:
-        """Connect to MT5 account via Flask API"""
+        """Connect to MT5 account via Flask API login endpoint"""
         try:
             logger.info(f"Connecting MT5 account for user {user_id}")
 
-            # Test MT5 Flask API connectivity
+            # Perform login via MT5 Flask API
             async with aiohttp.ClientSession() as session:
                 try:
-                    async with session.get(f"{MT5_API_BASE_URL}/health", timeout=5) as response:
-                        if response.status != 200:
+                    login_data = {
+                        'login': credentials['login'],
+                        'password': credentials['password'],
+                        'server': credentials['server']
+                    }
+
+                    async with session.post(f"{MT5_API_BASE_URL}/login", json=login_data, timeout=30) as response:
+                        if response.status == 200:
+                            login_response = await response.json()
+                            account_info = login_response.get('account_info', {})
+
+                            # Store connection info
+                            connection_info = {
+                                'login': credentials['login'],
+                                'server': credentials['server'],
+                                'encrypted_credentials': self.encrypt_credentials(credentials),
+                                'connected_at': datetime.now().isoformat(),
+                                'last_updated': datetime.now().isoformat(),
+                                'account_info': {
+                                    'balance': float(account_info.get('balance', 0)),
+                                    'equity': float(account_info.get('equity', 0)),
+                                    'margin': 0.0,
+                                    'margin_free': 0.0,
+                                    'profit': 0.0,
+                                    'leverage': 100,
+                                    'currency': account_info.get('currency', 'USD')
+                                }
+                            }
+
+                            self.active_connections[user_id] = connection_info
+
+                            # Start background monitoring task
+                            if user_id in self.monitoring_tasks:
+                                self.monitoring_tasks[user_id].cancel()
+
+                            self.monitoring_tasks[user_id] = asyncio.create_task(
+                                self.monitor_account(user_id)
+                            )
+
+                            logger.info(f"MT5 login successful for user {user_id}")
+                            return {
+                                'success': True,
+                                'account_info': connection_info['account_info'],
+                                'message': f'Successfully logged into MT5 account {credentials["login"]}'
+                            }
+                        else:
+                            error_data = await response.json()
+                            error_msg = error_data.get('error', f'Login failed with status {response.status}')
+                            logger.error(f"MT5 login failed for user {user_id}: {error_msg}")
                             return {
                                 'success': False,
-                                'error': f'MT5 API not available (status {response.status})'
+                                'error': error_msg
                             }
+
                 except asyncio.TimeoutError:
                     return {
                         'success': False,
-                        'error': 'MT5 API connection timeout'
+                        'error': 'MT5 API login request timeout'
                     }
                 except Exception as e:
+                    logger.error(f"MT5 API login request error: {e}")
                     return {
                         'success': False,
-                        'error': f'MT5 API connection failed: {str(e)}'
+                        'error': f'MT5 API login error: {str(e)}'
                     }
-
-            # Since MT5 Flask API doesn't have login endpoints, we simulate successful connection
-            # The actual MT5 login needs to be done manually via VNC or configured in the MT5 service
-            connection_info = {
-                'login': credentials['login'],
-                'server': credentials['server'],
-                'encrypted_credentials': self.encrypt_credentials(credentials),
-                'connected_at': datetime.now().isoformat(),
-                'last_updated': datetime.now().isoformat(),
-                'account_info': {
-                    'balance': 0.0,  # Will be updated by monitoring
-                    'equity': 0.0,
-                    'margin': 0.0,
-                    'margin_free': 0.0,
-                    'profit': 0.0,
-                    'leverage': 100,
-                    'currency': 'USD'
-                }
-            }
-
-            self.active_connections[user_id] = connection_info
-
-            # Start background monitoring task
-            if user_id in self.monitoring_tasks:
-                self.monitoring_tasks[user_id].cancel()
-
-            self.monitoring_tasks[user_id] = asyncio.create_task(
-                self.monitor_account(user_id)
-            )
-
-            logger.info(f"MT5 connection registered for user {user_id} (actual login via VNC)")
-            return {
-                'success': True,
-                'account_info': connection_info['account_info'],
-                'message': f'MT5 account {credentials["login"]} registered. Login manually via terminal.trainflow.dev VNC.'
-            }
 
         except Exception as e:
             logger.error(f"MT5 connection error for user {user_id}: {e}")
