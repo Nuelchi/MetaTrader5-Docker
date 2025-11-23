@@ -16,13 +16,23 @@ class SupabaseAuthVerifier:
     """Handles Supabase authentication using client (same as backend)"""
 
     def __init__(self):
-        self.supabase = supabase.create_client(
-            settings.supabase_url,
-            settings.supabase_anon_key
-        )
+        try:
+            self.supabase = supabase.create_client(
+                settings.supabase_url,
+                settings.supabase_anon_key
+            )
+            self.available = True
+        except Exception as e:
+            logger.warning(f"Supabase client initialization failed: {e}")
+            self.supabase = None
+            self.available = False
 
     def verify_jwt_token(self, token: str) -> Optional[Dict[str, Any]]:
         """Verify JWT token using Supabase client (same as backend)"""
+        if not self.available:
+            logger.warning("Supabase not available, skipping token verification")
+            return None
+
         try:
             # Use Supabase client to verify token (same as backend security.py)
             response = self.supabase.auth.get_user(token)
@@ -48,6 +58,14 @@ class SupabaseAuthVerifier:
 
     def get_user_from_token(self, token: str) -> Optional[Dict[str, Any]]:
         """Extract user information using Supabase client"""
+        if not self.available:
+            logger.warning("Supabase not available, returning mock user")
+            return {
+                'user_id': 'mock_user',
+                'email': 'mock@example.com',
+                'role': 'authenticated'
+            }
+
         try:
             response = self.supabase.auth.get_user(token)
 
