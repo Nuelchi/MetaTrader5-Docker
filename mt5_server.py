@@ -18,7 +18,16 @@ from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocke
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, validator
-import MetaTrader5 as mt5
+
+# Optional MT5 import for testing without MT5
+try:
+    import MetaTrader5 as mt5
+    MT5_AVAILABLE = True
+    logger.info("✅ MetaTrader5 library loaded successfully")
+except ImportError:
+    mt5 = None
+    MT5_AVAILABLE = False
+    logger.warning("⚠️  MetaTrader5 library not available - running in simulation mode")
 
 from auth import SupabaseJWTVerifier, get_current_user
 from mt5_account_manager import MT5AccountManager
@@ -145,7 +154,12 @@ class MarketDataRequest(BaseModel):
 @app.get("/")
 async def root():
     """Health check endpoint"""
-    return {"status": "MT5 Trading Server is running", "version": "1.0.0"}
+    return {
+        "status": "MT5 Trading Server is running",
+        "version": "1.0.0",
+        "mt5_available": MT5_AVAILABLE,
+        "mode": "production" if MT5_AVAILABLE else "simulation"
+    }
 
 @app.get("/health")
 async def health_check():
