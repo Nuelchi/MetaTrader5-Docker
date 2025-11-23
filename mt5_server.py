@@ -56,16 +56,16 @@ from config import settings
 
 # Update logging with settings if available
 try:
-    logging.getLogger().setLevel(getattr(logging, settings.LOG_LEVEL))
-    if hasattr(settings, 'LOG_FILE'):
-        logging.getLogger().addHandler(logging.FileHandler(settings.LOG_FILE))
+    logging.getLogger().setLevel(getattr(logging, settings.log_level))
+    if hasattr(settings, 'log_file'):
+        logging.getLogger().addHandler(logging.FileHandler(settings.log_file))
 except:
     pass  # Use default logging if settings not available
 
 # Initialize services
 jwt_verifier = SupabaseJWTVerifier(
-    supabase_url=settings.SUPABASE_URL,
-    supabase_anon_key=settings.SUPABASE_ANON_KEY
+    supabase_url=settings.supabase_url,
+    supabase_anon_key=settings.supabase_anon_key
 )
 
 account_manager = MT5AccountManager()
@@ -118,7 +118,7 @@ app = FastAPI(
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS.split(",") if settings.CORS_ORIGINS else ["*"],
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -339,9 +339,9 @@ if __name__ == "__main__":
     # Start the server
     uvicorn.run(
         "mt5_server:app",
-        host=settings.API_HOST,
-        port=settings.API_PORT,
-        workers=settings.API_WORKERS,
-        reload=settings.API_DEBUG,
-        log_level=settings.LOG_LEVEL.lower()
+        host=settings.api_host,
+        port=settings.api_port,
+        workers=settings.api_workers,
+        reload=settings.api_debug,
+        log_level=settings.log_level.lower()
     )
