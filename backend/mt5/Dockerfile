@@ -51,7 +51,9 @@ RUN dos2unix /scripts/*.sh && \
     chmod +x /scripts/*.sh
 
 COPY root /
-RUN touch /var/log/mt5_setup.log && \
+COPY Metatrader /Metatrader
+RUN chmod +x /Metatrader/start.sh && \
+    touch /var/log/mt5_setup.log && \
     chown abc:abc /var/log/mt5_setup.log && \
     chmod 644 /var/log/mt5_setup.log
 
