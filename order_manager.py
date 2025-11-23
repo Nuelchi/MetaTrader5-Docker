@@ -29,12 +29,12 @@ class OrderManager:
     """Manages trading orders and positions"""
 
     ORDER_TYPE_MAP = {
-        'buy': mt5.ORDER_TYPE_BUY,
-        'sell': mt5.ORDER_TYPE_SELL,
-        'buylimit': mt5.ORDER_TYPE_BUY_LIMIT,
-        'selllimit': mt5.ORDER_TYPE_SELL_LIMIT,
-        'buystop': mt5.ORDER_TYPE_BUY_STOP,
-        'sellstop': mt5.ORDER_TYPE_SELL_STOP
+        'buy': getattr(mt5, 'ORDER_TYPE_BUY', 0),
+        'sell': getattr(mt5, 'ORDER_TYPE_SELL', 1),
+        'buylimit': getattr(mt5, 'ORDER_TYPE_BUY_LIMIT', 2),
+        'selllimit': getattr(mt5, 'ORDER_TYPE_SELL_LIMIT', 3),
+        'buystop': getattr(mt5, 'ORDER_TYPE_BUY_STOP', 4),
+        'sellstop': getattr(mt5, 'ORDER_TYPE_SELL_STOP', 5)
     }
 
     def __init__(self):
@@ -55,18 +55,18 @@ class OrderManager:
         order_type = order_data.get('order_type', 'buy').lower()
 
         request = {
-            "action": mt5.TRADE_ACTION_DEAL,
+            "action": getattr(mt5, 'TRADE_ACTION_DEAL', 1),
             "symbol": order_data['symbol'],
             "volume": order_data['volume'],
-            "type": self.ORDER_TYPE_MAP.get(order_type, mt5.ORDER_TYPE_BUY),
+            "type": self.ORDER_TYPE_MAP.get(order_type, getattr(mt5, 'ORDER_TYPE_BUY', 0)),
             "price": order_data.get('price'),
             "sl": order_data.get('stop_loss'),
             "tp": order_data.get('take_profit'),
             "deviation": 10,  # Allow 10 points deviation
             "magic": 123456,  # Magic number for order identification
             "comment": "TrainFlow AI Trade",
-            "type_time": mt5.ORDER_TIME_GTC,  # Good till cancelled
-            "type_filling": mt5.ORDER_FILLING_IOC,  # Immediate or cancel
+            "type_time": getattr(mt5, 'ORDER_TIME_GTC', 0),  # Good till cancelled
+            "type_filling": getattr(mt5, 'ORDER_FILLING_IOC', 1),  # Immediate or cancel
         }
 
         # Remove None values
@@ -82,7 +82,7 @@ class OrderManager:
             # Send order
             result = mt5.order_send(order_request)
 
-            if result.retcode == mt5.TRADE_RETCODE_DONE:
+            if result.retcode == getattr(mt5, 'TRADE_RETCODE_DONE', 10009):
                 # Store order details
                 order_info = {
                     'ticket': result.order,
@@ -136,14 +136,14 @@ class OrderManager:
 
             # Create cancel request
             cancel_request = {
-                "action": mt5.TRADE_ACTION_REMOVE,
+                "action": getattr(mt5, 'TRADE_ACTION_REMOVE', 3),
                 "order": order_id,
                 "symbol": order.symbol
             }
 
             result = mt5.order_send(cancel_request)
 
-            if result.retcode == mt5.TRADE_RETCODE_DONE:
+            if result.retcode == getattr(mt5, 'TRADE_RETCODE_DONE', 10009):
                 # Remove from active orders
                 if order_id in self.active_orders:
                     del self.active_orders[order_id]
@@ -181,7 +181,7 @@ class OrderManager:
                 position_list.append({
                     'ticket': pos.ticket,
                     'symbol': pos.symbol,
-                    'type': 'buy' if pos.type == mt5.POSITION_TYPE_BUY else 'sell',
+                    'type': 'buy' if pos.type == getattr(mt5, 'POSITION_TYPE_BUY', 0) else 'sell',
                     'volume': float(pos.volume),
                     'price_open': float(pos.price_open),
                     'price_current': float(pos.price_current),
@@ -217,10 +217,10 @@ class OrderManager:
 
             # Create close request
             close_request = {
-                "action": mt5.TRADE_ACTION_DEAL,
+                "action": getattr(mt5, 'TRADE_ACTION_DEAL', 1),
                 "symbol": position.symbol,
                 "volume": close_volume,
-                "type": mt5.ORDER_TYPE_SELL if position.type == mt5.POSITION_TYPE_BUY else mt5.ORDER_TYPE_BUY,
+                "type": getattr(mt5, 'ORDER_TYPE_SELL', 1) if position.type == getattr(mt5, 'POSITION_TYPE_BUY', 0) else getattr(mt5, 'ORDER_TYPE_BUY', 0),
                 "position": ticket,
                 "price": mt5.symbol_info_tick(position.symbol).bid if position.type == mt5.POSITION_TYPE_BUY else mt5.symbol_info_tick(position.symbol).ask,
                 "deviation": 10,
@@ -230,7 +230,7 @@ class OrderManager:
 
             result = mt5.order_send(close_request)
 
-            if result.retcode == mt5.TRADE_RETCODE_DONE:
+            if result.retcode == getattr(mt5, 'TRADE_RETCODE_DONE', 10009):
                 logger.info(f"Position {ticket} closed successfully")
                 return {
                     'success': True,
@@ -305,7 +305,7 @@ class OrderManager:
 
             # Create modify request
             modify_request = {
-                "action": mt5.TRADE_ACTION_SLTP,
+                "action": getattr(mt5, 'TRADE_ACTION_SLTP', 6),
                 "symbol": position.symbol,
                 "position": ticket,
                 "sl": sl if sl is not None else position.sl,
@@ -314,7 +314,7 @@ class OrderManager:
 
             result = mt5.order_send(modify_request)
 
-            if result.retcode == mt5.TRADE_RETCODE_DONE:
+            if result.retcode == getattr(mt5, 'TRADE_RETCODE_DONE', 10009):
                 logger.info(f"Position {ticket} modified successfully")
                 return {
                     'success': True,

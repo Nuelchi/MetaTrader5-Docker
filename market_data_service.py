@@ -35,15 +35,15 @@ class MarketDataService:
     """Service for retrieving market data from MT5"""
 
     TIMEFRAME_MAP = {
-        "M1": mt5.TIMEFRAME_M1,
-        "M5": mt5.TIMEFRAME_M5,
-        "M15": mt5.TIMEFRAME_M15,
-        "M30": mt5.TIMEFRAME_M30,
-        "H1": mt5.TIMEFRAME_H1,
-        "H4": mt5.TIMEFRAME_H4,
-        "D1": mt5.TIMEFRAME_D1,
-        "W1": mt5.TIMEFRAME_W1,
-        "MN1": mt5.TIMEFRAME_MN1
+        "M1": getattr(mt5, 'TIMEFRAME_M1', 1),
+        "M5": getattr(mt5, 'TIMEFRAME_M5', 5),
+        "M15": getattr(mt5, 'TIMEFRAME_M15', 15),
+        "M30": getattr(mt5, 'TIMEFRAME_M30', 30),
+        "H1": getattr(mt5, 'TIMEFRAME_H1', 16385),
+        "H4": getattr(mt5, 'TIMEFRAME_H4', 16388),
+        "D1": getattr(mt5, 'TIMEFRAME_D1', 16408),
+        "W1": getattr(mt5, 'TIMEFRAME_W1', 32769),
+        "MN1": getattr(mt5, 'TIMEFRAME_MN1', 49153)
     }
 
     def __init__(self):
