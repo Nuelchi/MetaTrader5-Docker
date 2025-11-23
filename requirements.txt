@@ -12,5 +12,4 @@ supabase==2.3.0
 pandas==2.1.4
 numpy==1.26.2
 loguru==0.7.2
-# MetaTrader5==5.0.36  # Removed - requires manual installation
-# mt5linux==0.1.9       # Removed - dependency conflicts
+mt5linux==0.1.9
