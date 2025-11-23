@@ -39,9 +39,14 @@ class MT5AccountManager:
     async def initialize(self):
         """Initialize the account manager"""
         logger.info("Initializing MT5 Account Manager")
-        # Initialize MT5 if not already done
-        if not mt5.initialize():
-            raise Exception("MT5 initialization failed")
+        # Initialize MT5 if available and has initialize method
+        if mt5 and hasattr(mt5, 'initialize'):
+            if not mt5.initialize():
+                raise Exception("MT5 initialization failed")
+        elif mt5:
+            logger.info("MT5 library loaded but no initialize method needed")
+        else:
+            logger.warning("No MT5 library available - running in simulation mode")
         logger.info("MT5 Account Manager initialized successfully")
 
     async def cleanup(self):
