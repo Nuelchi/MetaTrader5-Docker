@@ -46,7 +46,7 @@ except ImportError:
         MT5_AVAILABLE = False
         logger.warning("⚠️  No MT5 library available - running in simulation mode")
 
-from auth import SupabaseJWTVerifier, get_current_user
+from auth import SupabaseAuthVerifier as SupabaseJWTVerifier, get_current_user
 from mt5_account_manager import MT5AccountManager
 from market_data_service import MarketDataService
 from order_manager import OrderManager
