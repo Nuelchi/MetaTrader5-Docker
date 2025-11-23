@@ -1,6 +1,6 @@
 """
 MT5 Account Manager
-Handles MT5 account connections, monitoring, and credential management
+Handles MT5 account connections via HTTP API to Wine-based MT5 service
 """
 
 import asyncio
@@ -8,25 +8,15 @@ from typing import Dict, Optional, List
 from datetime import datetime
 import json
 import logging
+import aiohttp
 from cryptography.fernet import Fernet
 
 from config import settings
 
 logger = logging.getLogger(__name__)
 
-# Optional MT5 import for testing without MT5
-try:
-    # Try mt5linux first (Linux-compatible)
-    import mt5linux as mt5
-    logger.info("✅ mt5linux library loaded in account manager")
-except ImportError:
-    try:
-        # Fallback to MetaTrader5 (Windows)
-        import MetaTrader5 as mt5
-        logger.info("✅ MetaTrader5 library loaded in account manager")
-    except ImportError:
-        mt5 = None
-        logger.warning("⚠️  No MT5 library available in account manager - running in simulation mode")
+# MT5 Flask API configuration
+MT5_API_BASE_URL = "http://mt5:5001"  # Internal Docker network
 
 class MT5AccountManager:
     """Manages MT5 account connections and monitoring"""
@@ -39,14 +29,16 @@ class MT5AccountManager:
     async def initialize(self):
         """Initialize the account manager"""
         logger.info("Initializing MT5 Account Manager")
-        # Initialize MT5 if available and has initialize method
-        if mt5 and hasattr(mt5, 'initialize'):
-            if not mt5.initialize():
-                raise Exception("MT5 initialization failed")
-        elif mt5:
-            logger.info("MT5 library loaded but no initialize method needed")
-        else:
-            logger.warning("No MT5 library available - running in simulation mode")
+        # Test connection to MT5 Flask API
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"{MT5_API_BASE_URL}/health") as response:
+                    if response.status == 200:
+                        logger.info("✅ MT5 Flask API connection successful")
+                    else:
+                        logger.warning(f"⚠️  MT5 Flask API returned status {response.status}")
+        except Exception as e:
+            logger.warning(f"⚠️  Could not connect to MT5 Flask API: {e}")
         logger.info("MT5 Account Manager initialized successfully")
 
     async def cleanup(self):
@@ -69,37 +61,32 @@ class MT5AccountManager:
         return json.loads(data.decode())
 
     async def connect_mt5_account(self, user_id: str, credentials: Dict) -> Dict:
-        """Connect to MT5 account and maintain persistent connection"""
+        """Connect to MT5 account via Flask API"""
         try:
             logger.info(f"Connecting MT5 account for user {user_id}")
 
-            # Login to account
-            login_result = mt5.login(
-                login=credentials['login'],
-                password=credentials['password'],
-                server=credentials['server']
-            )
+            # Test MT5 Flask API connectivity
+            async with aiohttp.ClientSession() as session:
+                try:
+                    async with session.get(f"{MT5_API_BASE_URL}/health", timeout=5) as response:
+                        if response.status != 200:
+                            return {
+                                'success': False,
+                                'error': f'MT5 API not available (status {response.status})'
+                            }
+                except asyncio.TimeoutError:
+                    return {
+                        'success': False,
+                        'error': 'MT5 API connection timeout'
+                    }
+                except Exception as e:
+                    return {
+                        'success': False,
+                        'error': f'MT5 API connection failed: {str(e)}'
+                    }
 
-            if not login_result:
-                error = mt5.last_error() if hasattr(mt5, 'last_error') else "Unknown error"
-                logger.error(f"MT5 login failed for user {user_id}: {error}")
-                # Ensure error is a string
-                error_msg = str(error) if not isinstance(error, str) else error
-                return {
-                    'success': False,
-                    'error': f'MT5 login failed: {error_msg}'
-                }
-
-            # Get account info
-            account_info = mt5.account_info()
-            if not account_info:
-                logger.error(f"Failed to get account info for user {user_id}")
-                return {
-                    'success': False,
-                    'error': 'Failed to get account info'
-                }
-
-            # Store encrypted credentials and connection info
+            # Since MT5 Flask API doesn't have login endpoints, we simulate successful connection
+            # The actual MT5 login needs to be done manually via VNC or configured in the MT5 service
             connection_info = {
                 'login': credentials['login'],
                 'server': credentials['server'],
@@ -107,13 +94,13 @@ class MT5AccountManager:
                 'connected_at': datetime.now().isoformat(),
                 'last_updated': datetime.now().isoformat(),
                 'account_info': {
-                    'balance': float(account_info.balance),
-                    'equity': float(account_info.equity),
-                    'margin': float(account_info.margin),
-                    'margin_free': float(account_info.margin_free),
-                    'profit': float(account_info.profit),
-                    'leverage': account_info.leverage,
-                    'currency': account_info.currency
+                    'balance': 0.0,  # Will be updated by monitoring
+                    'equity': 0.0,
+                    'margin': 0.0,
+                    'margin_free': 0.0,
+                    'profit': 0.0,
+                    'leverage': 100,
+                    'currency': 'USD'
                 }
             }
 
@@ -127,11 +114,11 @@ class MT5AccountManager:
                 self.monitor_account(user_id)
             )
 
-            logger.info(f"MT5 connection successful for user {user_id}")
+            logger.info(f"MT5 connection registered for user {user_id} (actual login via VNC)")
             return {
                 'success': True,
                 'account_info': connection_info['account_info'],
-                'message': f'Connected to MT5 account {credentials["login"]}'
+                'message': f'MT5 account {credentials["login"]} registered. Login manually via terminal.trainflow.dev VNC.'
             }
 
         except Exception as e:
@@ -142,34 +129,39 @@ class MT5AccountManager:
             }
 
     async def monitor_account(self, user_id: str):
-        """Monitor account status and maintain connection"""
+        """Monitor account status via MT5 Flask API"""
         logger.info(f"Starting account monitoring for user {user_id}")
 
         while user_id in self.active_connections:
             try:
-                # Check if still connected and get fresh account info
-                account_info = mt5.account_info()
-                if account_info:
-                    # Update connection info
-                    connection_info = self.active_connections[user_id]
-                    connection_info['last_updated'] = datetime.now().isoformat()
-                    connection_info['account_info'] = {
-                        'balance': float(account_info.balance),
-                        'equity': float(account_info.equity),
-                        'margin': float(account_info.margin),
-                        'margin_free': float(account_info.margin_free),
-                        'profit': float(account_info.profit),
-                        'leverage': account_info.leverage,
-                        'currency': account_info.currency
-                    }
+                # Get fresh account info from MT5 Flask API
+                async with aiohttp.ClientSession() as session:
+                    try:
+                        async with session.get(f"{MT5_API_BASE_URL}/account/info", timeout=10) as response:
+                            if response.status == 200:
+                                account_data = await response.json()
+                                # Update connection info
+                                connection_info = self.active_connections[user_id]
+                                connection_info['last_updated'] = datetime.now().isoformat()
+                                connection_info['account_info'] = {
+                                    'balance': float(account_data.get('balance', 0)),
+                                    'equity': float(account_data.get('equity', 0)),
+                                    'margin': float(account_data.get('margin', 0)),
+                                    'margin_free': float(account_data.get('margin_free', 0)),
+                                    'profit': float(account_data.get('profit', 0)),
+                                    'leverage': account_data.get('leverage', 100),
+                                    'currency': account_data.get('currency', 'USD')
+                                }
 
-                    # Check risk limits
-                    await self.check_risk_limits(user_id, connection_info)
+                                # Check risk limits
+                                await self.check_risk_limits(user_id, connection_info)
+                            else:
+                                logger.warning(f"Failed to get account info for user {user_id}: HTTP {response.status}")
 
-                else:
-                    # Try to reconnect
-                    logger.warning(f"Lost MT5 connection for user {user_id}, attempting reconnect")
-                    await self.reconnect_account(user_id)
+                    except asyncio.TimeoutError:
+                        logger.warning(f"Account info request timeout for user {user_id}")
+                    except Exception as e:
+                        logger.error(f"Account info request error for user {user_id}: {e}")
 
                 await asyncio.sleep(settings.health_check_interval)
 
