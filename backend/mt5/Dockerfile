@@ -45,8 +45,8 @@ RUN apt-get install --install-recommends -y \
 FROM base
 
 # Copy the scripts directory and convert start.sh to Unix format
-COPY app /app
-COPY scripts /scripts
+COPY backend/mt5/app /app
+COPY backend/mt5/scripts /scripts
 RUN dos2unix /scripts/*.sh && \
     chmod +x /scripts/*.sh
 
