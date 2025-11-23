@@ -40,14 +40,15 @@ is_wine_python_package_installed() {
 check_dependency "curl"
 check_dependency "$wine_executable"
 
-# Fix Wine directory ownership and run as abc user
-chown -R abc:abc /config/.wine 2>/dev/null || true
-# Switch to abc user for Wine operations
-if [ "$EUID" -eq 0 ]; then
-    su-exec abc:abc "$wine_executable" reg add "HKEY_CURRENT_USER\\Software\\Wine" /v Version /t REG_SZ /d "win10" /f
-else
-    $wine_executable reg add "HKEY_CURRENT_USER\\Software\\Wine" /v Version /t REG_SZ /d "win10" /f
+# Fix Wine directory ownership - delete and recreate if ownership issue
+if [ -d "/config/.wine" ]; then
+    rm -rf /config/.wine
 fi
+mkdir -p /config/.wine
+chown -R abc:abc /config/.wine
+
+# Run Wine operations as abc user
+sudo -u abc $wine_executable reg add "HKEY_CURRENT_USER\\Software\\Wine" /v Version /t REG_SZ /d "win10" /f
 
 # Install Mono if not present
 if [ ! -e "/config/.wine/drive_c/windows/mono" ]; then
@@ -67,11 +68,11 @@ else
     show_message "[2/7] File $mt5file is not installed. Installing..."
 
     # Set Windows 10 mode in Wine and download and install MT5
-    $wine_executable reg add "HKEY_CURRENT_USER\\Software\\Wine" /v Version /t REG_SZ /d "win10" /f
+    sudo -u abc $wine_executable reg add "HKEY_CURRENT_USER\\Software\\Wine" /v Version /t REG_SZ /d "win10" /f
     show_message "[3/7] Downloading MT5 installer..."
     curl -o /config/.wine/drive_c/mt5setup.exe $mt5setup_url
     show_message "[3/7] Installing MetaTrader 5..."
-    $wine_executable "/config/.wine/drive_c/mt5setup.exe" "/auto" &
+    sudo -u abc $wine_executable "/config/.wine/drive_c/mt5setup.exe" "/auto" &
     wait
     rm -f /config/.wine/drive_c/mt5setup.exe
 fi
@@ -79,7 +80,7 @@ fi
 # Recheck if MetaTrader 5 is installed
 if [ -e "$mt5file" ]; then
     show_message "[4/7] File $mt5file is installed. Running MT5..."
-    $wine_executable "$mt5file" &
+    sudo -u abc $wine_executable "$mt5file" &
 else
     show_message "[4/7] File $mt5file is not installed. MT5 cannot be run."
 fi
@@ -98,22 +99,22 @@ fi
 
 # Upgrade pip and install required packages
 show_message "[6/7] Installing Python libraries"
-$wine_executable python -m pip install --upgrade --no-cache-dir pip
+sudo -u abc $wine_executable python -m pip install --upgrade --no-cache-dir pip
 # Install MetaTrader5 library in Windows if not installed
 show_message "[6/7] Installing MetaTrader5 library in Windows"
 if ! is_wine_python_package_installed "MetaTrader5==$metatrader_version"; then
-    $wine_executable python -m pip install --no-cache-dir MetaTrader5==$metatrader_version
+    sudo -u abc $wine_executable python -m pip install --no-cache-dir MetaTrader5==$metatrader_version
 fi
 # Install mt5linux library in Windows if not installed
 show_message "[6/7] Checking and installing mt5linux library in Windows if necessary"
 if ! is_wine_python_package_installed "mt5linux"; then
-    $wine_executable python -m pip install --no-cache-dir "mt5linux>=0.1.9"
+    sudo -u abc $wine_executable python -m pip install --no-cache-dir "mt5linux>=0.1.9"
 fi
 
 # Install python-dateutil if needed (datetime is built-in, but dateutil adds features)
 if ! is_wine_python_package_installed "python-dateutil"; then
     show_message "[6/7] Installing python-dateutil library in Windows"
-    $wine_executable python -m pip install --no-cache-dir python-dateutil
+    sudo -u abc $wine_executable python -m pip install --no-cache-dir python-dateutil
 fi
 
 # Install mt5linux library in Linux if not installed
