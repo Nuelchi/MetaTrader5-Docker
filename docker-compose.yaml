@@ -1,101 +1,7 @@
-# services:
-#   mt5:
-#     build: .
-#     image: gmag11/metatrader5_vnc
-#     container_name: mt5
-#     volumes:
-#       - ./config:/config
-#     ports:
-#       - 3000:3000
-#       - 8001:8001
-#     env_file:
-#       - .env
+  # MT5 Terminal for VNC access (existing)
 version: "3.9"
 
 services:
-
-  # MT5 Terminal for VNC access (existing)
-  mt5-terminal:
-    build: .
-    container_name: mt5-terminal
-    restart: always
-    volumes:
-      - ./Metatrader:/home/wineuser/.wine/drive_c/ProgramData/MetaQuotes/Terminal
-    environment:
-      - DISPLAY=:0
-    ports:
-      - "5901:5901"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.mt5-terminal.rule=Host(`mt5.traintrading.trainflow.dev`)"
-      - "traefik.http.routers.mt5-terminal.entrypoints=websecure"
-      - "traefik.http.routers.mt5-terminal.tls.certresolver=letsencrypt"
-    depends_on:
-      - traefik
-
-  # NoVNC for MT5 terminal access
-  novnc:
-    image: theasp/novnc:latest
-    container_name: novnc
-    restart: always
-    environment:
-      - VNC_HOST=mt5-terminal
-      - VNC_PORT=5901
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.novnc.rule=Host(`mt5.traintrading.trainflow.dev`)"
-      - "traefik.http.routers.novnc.entrypoints=websecure"
-      - "traefik.http.routers.novnc.tls.certresolver=letsencrypt"
-
-  # MT5 Trading Server API (new)
-  mt5-server:
-    build:
-      context: .
-      dockerfile: Dockerfile.server
-    container_name: mt5-server
-    restart: always
-    env_file:
-      - .env
-    volumes:
-      - ./logs:/var/log
-      - ./data:/app/data
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.mt5-api.rule=Host(`api.traintrading.trainflow.dev`)"
-      - "traefik.http.routers.mt5-api.entrypoints=websecure"
-      - "traefik.http.routers.mt5-api.tls.certresolver=letsencrypt"
-      - "traefik.http.middlewares.mt5-api-cors.headers.accesscontrolalloworiginlist=trainflow.dev,www.trainflow.dev,traintrading.trainflow.dev"
-      - "traefik.http.middlewares.mt5-api-cors.headers.accesscontrolallowmethods=GET,POST,PUT,DELETE,OPTIONS"
-      - "traefik.http.middlewares.mt5-api-cors.headers.accesscontrolallowheaders=Authorization,Content-Type,X-API-Key"
-      - "traefik.http.routers.mt5-api.middlewares=mt5-api-cors"
-    depends_on:
-      - traefik
-      - mt5-terminal
-
-  # PostgreSQL for MT5 server data (optional)
-  postgres:
-    image: postgres:15
-    container_name: mt5-postgres
-    restart: always
-    environment:
-      POSTGRES_DB: mt5_server
-      POSTGRES_USER: mt5_user
-      POSTGRES_PASSWORD: secure_password_change_me
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    labels:
-      - "traefik.enable=false"  # Internal only
-
-  # Redis for caching (optional)
-  redis:
-    image: redis:7-alpine
-    container_name: mt5-redis
-    restart: always
-    command: redis-server --appendonly yes
-    volumes:
-      - redis_data:/data
-    labels:
-      - "traefik.enable=false"  # Internal only
 
   traefik:
     image: traefik:latest
@@ -114,9 +20,93 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=Host(`dashboard.traintrading.trainflow.dev`)"
+      - "traefik.http.routers.dashboard.entrypoints=websecure"
+      - "traefik.http.routers.dashboard.service=api@internal"
+      - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - "./traefik/letsencrypt:/letsencrypt"
+
+  mt5-terminal:
+    build: .
+    container_name: mt5-terminal
+    restart: always
+    environment:
+      - DISPLAY=:0
+    ports:
+      - "5901:5901"
+    volumes:
+      - ./Metatrader:/home/wineuser/.wine/drive_c/ProgramData/MetaQuotes/Terminal
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.terminal.rule=Host(`terminal.traintrading.trainflow.dev`)"
+      - "traefik.http.routers.terminal.entrypoints=websecure"
+      - "traefik.http.routers.terminal.tls.certresolver=letsencrypt"
+    depends_on:
+      - traefik
+
+  novnc:
+    image: theasp/novnc:latest
+    container_name: novnc
+    restart: always
+    environment:
+      - VNC_HOST=mt5-terminal
+      - VNC_PORT=5901
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.novnc.rule=Host(`trade.traintrading.trainflow.dev`)"
+      - "traefik.http.routers.novnc.entrypoints=websecure"
+      - "traefik.http.routers.novnc.tls.certresolver=letsencrypt"
+
+  mt5-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    container_name: mt5-server
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - ./logs:/var/log
+      - ./data:/app/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.rule=Host(`api.traintrading.trainflow.dev`)"
+      - "traefik.http.routers.api.entrypoints=websecure"
+      - "traefik.http.routers.api.tls.certresolver=letsencrypt"
+      - "traefik.http.middlewares.api-cors.headers.accesscontrolalloworiginlist=*"
+      - "traefik.http.middlewares.api-cors.headers.accesscontrolallowmethods=GET,POST,PUT,DELETE,OPTIONS"
+      - "traefik.http.middlewares.api-cors.headers.accesscontrolallowheaders=Authorization,Content-Type,X-API-Key"
+      - "traefik.http.routers.api.middlewares=api-cors"
+    depends_on:
+      - traefik
+      - mt5-terminal
+
+  postgres:
+    image: postgres:15
+    container_name: mt5-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: mt5_server
+      POSTGRES_USER: mt5_user
+      POSTGRES_PASSWORD: secure_password_change_me
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    labels:
+      - "traefik.enable=false"
+
+  redis:
+    image: redis:7-alpine
+    container_name: mt5-redis
+    restart: always
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    labels:
+      - "traefik.enable=false"
 
 volumes:
   postgres_data:
