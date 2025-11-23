@@ -40,8 +40,14 @@ is_wine_python_package_installed() {
 check_dependency "curl"
 check_dependency "$wine_executable"
 
-# Fix Wine directory ownership
+# Fix Wine directory ownership and run as abc user
 chown -R abc:abc /config/.wine 2>/dev/null || true
+# Switch to abc user for Wine operations
+if [ "$EUID" -eq 0 ]; then
+    su-exec abc:abc "$wine_executable" reg add "HKEY_CURRENT_USER\\Software\\Wine" /v Version /t REG_SZ /d "win10" /f
+else
+    $wine_executable reg add "HKEY_CURRENT_USER\\Software\\Wine" /v Version /t REG_SZ /d "win10" /f
+fi
 
 # Install Mono if not present
 if [ ! -e "/config/.wine/drive_c/windows/mono" ]; then
