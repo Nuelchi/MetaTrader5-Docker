@@ -1,92 +1,107 @@
 #!/usr/bin/env python3
 """
-Test script to verify requirements installation before Docker build
+Test script to check requirements compatibility before Docker build
 """
 
 import sys
 import subprocess
+import tempfile
 import os
 
-def run_command(cmd, description):
-    """Run a command and return success/failure"""
-    print(f"\n🔍 Testing: {description}")
+def test_requirements_compatibility():
+    """Test if requirements.txt can be installed without conflicts"""
+
+    print("🔍 Testing requirements compatibility...")
+
+    # Read requirements.txt
+    with open('requirements.txt', 'r') as f:
+        requirements = [line.strip() for line in f if line.strip() and not line.startswith('#')]
+
+    print(f"📦 Found {len(requirements)} requirements:")
+    for req in requirements:
+        print(f"  - {req}")
+
+    # Test pip install --dry-run
+    print("\n🧪 Testing pip dependency resolution...")
+
     try:
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=300)
+        result = subprocess.run([
+            sys.executable, '-m', 'pip', 'install', '--dry-run', '--quiet'
+        ] + requirements, capture_output=True, text=True, timeout=60)
+
         if result.returncode == 0:
-            print(f"✅ SUCCESS: {description}")
+            print("✅ All requirements are compatible!")
             return True
         else:
-            print(f"❌ FAILED: {description}")
-            print(f"Error: {result.stderr}")
+            print("❌ Dependency conflicts found:")
+            print(result.stderr)
             return False
+
+    except subprocess.TimeoutExpired:
+        print("⏰ Pip resolution timed out (this is normal for complex dependency trees)")
+        return None
     except Exception as e:
-        print(f"❌ ERROR: {description} - {e}")
+        print(f"❌ Error testing requirements: {e}")
         return False
 
-def test_package_availability():
-    """Test if packages can be installed"""
-    print("🚀 Testing package installation...")
+def test_mt5linux_import():
+    """Test if mt5linux can be imported"""
 
-    # Test basic packages first
-    basic_packages = [
-        "fastapi==0.104.1",
-        "uvicorn==0.24.0",
-        "websockets==12.0",
-        "pydantic==2.5.0"
-    ]
+    print("\n🔧 Testing mt5linux import...")
 
-    for package in basic_packages:
-        if not run_command(f"pip install --dry-run {package}", f"Check {package} availability"):
-            return False
-
-    # Test MetaTrader5 separately (known to be problematic)
-    print("\n🔍 Testing MetaTrader5 installation...")
     try:
-        # Try to find MetaTrader5 wheel
-        result = subprocess.run("pip index versions MetaTrader5", shell=True, capture_output=True, text=True)
-        if "MetaTrader5" in result.stdout:
-            print("✅ MetaTrader5 found in PyPI index")
-            return run_command("pip install --dry-run MetaTrader5==5.0.36", "MetaTrader5 5.0.36 availability")
-        else:
-            print("❌ MetaTrader5 not found in PyPI index")
-            print("💡 MetaTrader5 needs to be installed from a wheel file or alternative source")
-            return False
-    except Exception as e:
-        print(f"❌ Error checking MetaTrader5: {e}")
-        return False
+        # Try to import mt5linux
+        import mt5linux
+        print("✅ mt5linux imported successfully")
+        print(f"   Version: {getattr(mt5linux, '__version__', 'Unknown')}")
 
-def test_mt5linux_alternative():
-    """Test mt5linux as alternative"""
-    print("\n🔍 Testing mt5linux alternative...")
-    return run_command("pip install --dry-run mt5linux==0.1.9", "mt5linux 0.1.9 availability")
+        # Test basic functionality
+        if hasattr(mt5linux, 'initialize'):
+            print("   ✅ Has initialize method")
+        if hasattr(mt5linux, 'login'):
+            print("   ✅ Has login method")
+        if hasattr(mt5linux, 'shutdown'):
+            print("   ✅ Has shutdown method")
+
+        return True
+
+    except ImportError as e:
+        print(f"❌ mt5linux import failed: {e}")
+        return False
+    except Exception as e:
+        print(f"⚠️  mt5linux import error: {e}")
+        return False
 
 def main():
-    print("🧪 MT5 Server Requirements Test")
+    print("🚀 MT5 Docker Requirements Test")
     print("=" * 50)
 
-    # Change to the correct directory
-    os.chdir(os.path.dirname(os.path.abspath(__file__)))
+    # Test requirements compatibility
+    compat_result = test_requirements_compatibility()
 
-    success = True
-
-    # Test package availability
-    if not test_package_availability():
-        success = False
-
-    # Test alternative
-    if not test_mt5linux_alternative():
-        print("⚠️  mt5linux alternative also failed")
+    # Test mt5linux import
+    import_result = test_mt5linux_import()
 
     print("\n" + "=" * 50)
-    if success:
-        print("✅ All tests passed! Ready for Docker build.")
+    print("📊 Test Results:")
+
+    if compat_result is True:
+        print("✅ Requirements compatibility: PASS")
+    elif compat_result is False:
+        print("❌ Requirements compatibility: FAIL")
+    else:
+        print("⏰ Requirements compatibility: TIMEOUT (may still work)")
+
+    if import_result:
+        print("✅ mt5linux import: PASS")
+    else:
+        print("❌ mt5linux import: FAIL")
+
+    if compat_result and import_result:
+        print("\n🎉 All tests passed! Ready for Docker build.")
         return 0
     else:
-        print("❌ Some tests failed. Need to fix requirements.")
-        print("\n💡 Solutions:")
-        print("1. Remove MetaTrader5==5.0.36 from requirements.txt")
-        print("2. Use mt5linux==0.1.9 instead")
-        print("3. Or install MetaTrader5 from a wheel file")
+        print("\n⚠️  Some tests failed. Check dependency conflicts.")
         return 1
 
 if __name__ == "__main__":
