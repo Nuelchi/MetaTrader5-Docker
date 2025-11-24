@@ -130,9 +130,14 @@ if ! is_python_package_installed "pyxdg"; then
     pip install --break-system-packages --no-cache-dir pyxdg
 fi
 
-# Start the MT5 server on Linux (run as abc user to match Wine ownership)
+# Start the MT5 server on Linux (try as abc user first, fallback to root)
 show_message "[7/7] Starting the mt5linux server..."
-sudo -u abc python3 -m mt5linux --host 0.0.0.0 -p $mt5server_port -w "$wine_executable python.exe" &
+if sudo -u abc python3 -m mt5linux --host 0.0.0.0 -p $mt5server_port -w "$wine_executable python.exe" 2>/dev/null; then
+    show_message "[7/7] mt5linux server started successfully as abc user."
+else
+    show_message "[7/7] Failed as abc user, trying as root..."
+    python3 -m mt5linux --host 0.0.0.0 -p $mt5server_port -w "$wine_executable python.exe" &
+fi
 
 # Give the server some time to start
 sleep 5
